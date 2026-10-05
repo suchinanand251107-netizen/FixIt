@@ -16,6 +16,7 @@ let issues=[
  mk(106,'Rohit','Electrical','Sparks coming from socket near the wires.','Hostel – Room 12','High','Pending',2*H)
 ];
 const S={role:null,user:'You',view:'login',sel:null,f:{q:'',cat:'',st:'',pr:''},nid:200};
+try{const saved=localStorage.getItem('samats_data');if(saved){const o=JSON.parse(saved);issues=o.issues;Object.assign(S,o.S);}}catch(e){}
 const NAVS={worker:[['tasks','My tasks'],['stats','Statistics']],student:[['report','Report issue'],['mine','My complaints'],['board','All issues'],['stats','Statistics']],admin:[['admin','Dashboard'],['stats','Statistics']]};
 const PR={High:0,Medium:1,Low:2};
 
@@ -134,6 +135,7 @@ function statsV(){const c=cnt(),rate=c.t?Math.round(c.r/c.t*100):0;
 <div class="card"><h2>By location</h2>${bars(grp('loc'))}</div></div>`}
 
 function render(){
+ try{localStorage.setItem('samats_data',JSON.stringify({issues,S}));}catch(e){}
  const nv=S.role?NAVS[S.role]:[];
  $('#nav').innerHTML=nv.map(n=>`<button class="${S.view==n[0]?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join('');
  $('#out').hidden=!S.role;
