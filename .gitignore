@@ -1,1 +1,16 @@
+# Proposal PDF
 FixIt_Combined_Project_Proposal.pdf
+
+# Node dependencies - never push this (npm install recreates it)
+node_modules/
+
+# SQLite database - contains live data, not for version control
+fixit.db
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
