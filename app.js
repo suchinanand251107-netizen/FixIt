@@ -6,6 +6,7 @@ const fmt=t=>new Date(t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'
 const H=36e5,D=24*H,now=Date.now();
 const CATS=['Electrical','Plumbing','Furniture','Fan / Light','Classroom','Other'];
 const WORKERS=['Ravi (Electrician)','Meena (Plumber)','Karthik (Carpenter)','Suresh (General)'];
+const WORKER_PWS={'Ravi (Electrician)':'ravi123','Meena (Plumber)':'meena123','Karthik (Carpenter)':'karthik123','Suresh (General)':'suresh123'};
 const mk=(id,by,cat,desc,loc,prio,status,age,extra={})=>({id,by,cat,desc,loc,sugg:prio,prio,status,worker:null,before:null,after:null,remarks:'',votes:[],link:null,times:[['Reported',now-age]],...extra});
 let issues=[];
 async function loadIssues() {
@@ -33,7 +34,8 @@ function pick(r){S.lr=r;go('lg')}
 function doLogin(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
  if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
  if(!pw)return toast('Enter your password',1);
- if(r!='worker'){const acc=accounts.find(a=>a.id==id&&a.role==r);if(!acc)return toast('Account not found. Please create one.',1);if(acc.pw!=pw)return toast('Incorrect password',1);}
+ if(r=='worker'){if(pw!=WORKER_PWS[id])return toast('Incorrect password',1);}
+ else{const acc=accounts.find(a=>a.id==id&&a.role==r);if(!acc)return toast('Account not found. Please create one.',1);if(acc.pw!=pw)return toast('Incorrect password',1);}
  S.role=r;S.name=id;S.user=r=='worker'?id:(r=='admin'?'Admin':'You');toast('Welcome, '+id.split(' (')[0]);go(HOME[r])}
 function doSignup(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
  if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
