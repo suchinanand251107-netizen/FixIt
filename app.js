@@ -16,7 +16,8 @@ let issues=[
  mk(106,'Rohit','Electrical','Sparks coming from socket near the wires.','Hostel – Room 12','High','Pending',2*H)
 ];
 const S={role:null,user:'You',view:'login',sel:null,f:{q:'',cat:'',st:'',pr:''},nid:200};
-try{const saved=localStorage.getItem('samats_data');if(saved){const o=JSON.parse(saved);issues=o.issues;Object.assign(S,o.S);}}catch(e){}
+let accounts=[{role:'admin',id:'admin01',pw:'admin123'}];
+try{const saved=localStorage.getItem('samats_data');if(saved){const o=JSON.parse(saved);issues=o.issues;Object.assign(S,o.S);if(o.accounts)accounts=o.accounts;}}catch(e){}
 const NAVS={worker:[['tasks','My tasks'],['stats','Statistics']],student:[['report','Report issue'],['mine','My complaints'],['board','All issues'],['stats','Statistics']],admin:[['admin','Dashboard'],['stats','Statistics']]};
 const PR={High:0,Medium:1,Low:2};
 
@@ -30,13 +31,19 @@ function pick(r){S.lr=r;go('lg')}
 function doLogin(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
  if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
  if(!pw)return toast('Enter your password',1);
+ if(r!='worker'){const acc=accounts.find(a=>a.id==id&&a.role==r);if(!acc)return toast('Account not found. Please create one.',1);if(acc.pw!=pw)return toast('Incorrect password',1);}
  S.role=r;S.name=id;S.user=r=='worker'?id:(r=='admin'?'Admin':'You');toast('Welcome, '+id.split(' (')[0]);go(HOME[r])}
+function doSignup(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
+ if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
+ if(!pw)return toast('Enter your password',1);
+ if(accounts.find(a=>a.id==id&&a.role==r))return toast('Account already exists',1);
+ accounts.push({role:r,id,pw});toast('Account created');doLogin()}
 function lgV(){const r=S.lr,c=RL[r];
  return `<div class="lgbox" onkeydown="if(event.key=='Enter')doLogin()"><div class="hero"><img src="${LOGO}" alt="College logo"><div><h1 style="margin:0">FixIt</h1></div></div>
 <div class="card bgi fm" style="--img:url(${IMG[r]})"><h2 style="color:var(--ac)">${c[1]}</h2><p class="sub" style="margin-bottom:6px">${c[2]}</p>
 ${r=='worker'?`<label>Your name</label><select id="li">${WORKERS.map(w=>`<option>${w}</option>`).join('')}</select>`:`<label>${c[3]}</label><input id="li" placeholder="${c[4]}" autocomplete="off">`}
 <label>Password</label><input id="lp" type="password" placeholder="Enter password">
-<div class="row2" style="margin-top:18px"><button class="btn" onclick="doLogin()">Log in</button><button class="btn ghost" onclick="go('login')">Back</button></div></div></div>`}
+<div class="row2" style="margin-top:18px"><button class="btn" onclick="doLogin()">Log in</button>${r!='worker'?`<button class="btn ghost" onclick="doSignup()">Create account</button>`:''}<button class="btn ghost" onclick="go('login')">Back</button></div></div></div>`}
 function tasksV(){const m=issues.filter(i=>i.worker==S.user).sort((a,b)=>PR[a.prio]-PR[b.prio]),c=s=>m.filter(i=>i.status==s).length;
  return `<h1>My tasks</h1><p class="sub">Jobs assigned to ${esc(S.user)}. Urgent ones first.</p><div class="grid g4" style="margin-bottom:16px">${[['Assigned to me',m.length],['In progress',c('In Progress')],['Resolved',c('Resolved')]].map(x=>`<div class="card stat"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('')}</div><div class="card">${listRows(m)}</div>`}
 function logout(){S.role=null;go('login')}
@@ -135,7 +142,7 @@ function statsV(){const c=cnt(),rate=c.t?Math.round(c.r/c.t*100):0;
 <div class="card"><h2>By location</h2>${bars(grp('loc'))}</div></div>`}
 
 function render(){
- try{localStorage.setItem('samats_data',JSON.stringify({issues,S}));}catch(e){}
+ try{localStorage.setItem('samats_data',JSON.stringify({issues,S,accounts}));}catch(e){}
  const nv=S.role?NAVS[S.role]:[];
  $('#nav').innerHTML=nv.map(n=>`<button class="${S.view==n[0]?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join('');
  $('#out').hidden=!S.role;
