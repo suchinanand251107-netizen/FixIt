@@ -7,14 +7,16 @@ const H=36e5,D=24*H,now=Date.now();
 const CATS=['Electrical','Plumbing','Furniture','Fan / Light','Classroom','Other'];
 const WORKERS=['Ravi (Electrician)','Meena (Plumber)','Karthik (Carpenter)','Suresh (General)'];
 const mk=(id,by,cat,desc,loc,prio,status,age,extra={})=>({id,by,cat,desc,loc,sugg:prio,prio,status,worker:null,before:null,after:null,remarks:'',votes:[],link:null,times:[['Reported',now-age]],...extra});
-let issues=[
- mk(101,'Divya','Electrical','Water is leaking near the electrical switchboard.','Block A – Room 204','High','In Progress',2*D,{worker:WORKERS[0],votes:['Karan','Asha'],times:[['Reported',now-2*D],['Assigned',now-2*D+3*H],['In Progress',now-D]]}),
- mk(102,'Arjun','Fan / Light','Ceiling fan is not rotating.','Block B – Room 110','Medium','Pending',3*H),
- mk(103,'You','Furniture','Two benches have broken legs.','Library – Floor 1','Low','Pending',D),
- mk(104,'Meera','Plumbing','Tap in washroom keeps dripping.','Block C – Washroom','Low','Resolved',5*D,{worker:WORKERS[1],remarks:'Washer replaced.',after:'x',times:[['Reported',now-5*D],['Assigned',now-5*D+H],['In Progress',now-4*D],['Resolved',now-3*D]]}),
- mk(105,'You','Classroom','Projector shows no display.','Block A – Room 301','Medium','In Progress',2*D,{worker:WORKERS[3],times:[['Reported',now-2*D],['Assigned',now-2*D+2*H],['In Progress',now-D]]}),
- mk(106,'Rohit','Electrical','Sparks coming from socket near the wires.','Hostel – Room 12','High','Pending',2*H)
-];
+let issues=[];
+async function loadIssues() {
+    try {
+        const res = await fetch('http://localhost:3000/api/issues');
+        const data = await res.json();
+        issues = data.map(d => ({...d, by: d.by_user, before: d.before_photo, after: d.after_photo}));
+        render();
+    } catch(e) { console.error(e); }
+}
+loadIssues();
 const S={role:null,user:'You',view:'login',sel:null,f:{q:'',cat:'',st:'',pr:''},nid:200};
 let accounts=[{role:'admin',id:'admin01',pw:'admin123'}];
 try{const saved=localStorage.getItem('samats_data');if(saved){const o=JSON.parse(saved);issues=o.issues;Object.assign(S,o.S);if(o.accounts)accounts=o.accounts;}}catch(e){}
@@ -58,7 +60,7 @@ function suggest(t){t=t.toLowerCase();
  return t.trim()?'Low':null}
 function dups(loc,cat,desc){const w=x=>new Set(x.toLowerCase().split(/\W+/).filter(a=>a.length>3));const dw=w(desc);
  return issues.filter(i=>i.status!='Resolved'&&!i.link&&i.cat==cat&&(i.loc.toLowerCase()==loc.trim().toLowerCase()||[...w(i.desc)].filter(a=>dw.has(a)).length>=2)).slice(0,3)}
-function support(id){const i=get(id);if(i.votes.includes(S.user)||i.by==S.user)return toast('You already support this issue',1);i.votes.push(S.user);toast('Added: you have this issue too');render()}
+
 
 /* views */
 function loginV(){const card=(r,i,t,d)=>`<div class="card role bgi" style="--img:url(${IMG[r]})" onclick="pick('${r}')" tabindex="0" onkeydown="if(event.key=='Enter')pick('${r}')"><h2>${t}</h2><p class="sub">${d}</p><span class="btn">Log in</span></div>`;
@@ -80,9 +82,15 @@ function chk(){const d=$('#rd').value,p=suggest(d);
  $('#dp').innerHTML=x.length?`<div class="warn"><b>Possible duplicates</b><p class="sub" style="margin:4px 0 8px">Already reported? Support it instead of creating a new ticket.</p>${x.map(i=>`<div class="row2" style="justify-content:space-between;margin:6px 0"><span>#${i.id} ${esc(i.desc)}<br><small class="sub">${esc(i.loc)} · ${i.votes.length+1} affected</small></span><button class="btn sm" onclick="support(${i.id})">I have this issue too</button></div>`).join('')}</div>`:''}
 function submitIssue(){const loc=$('#rl').value.trim(),desc=$('#rd').value.trim();
  if(!loc||!desc)return toast('Add a location and description',1);
- const f=$('#rp').files[0],add=b=>{const p=suggest(desc)||'Low',d=dups(loc,$('#rc').value,desc);
-  const i=mk(S.nid++,S.user,$('#rc').value,desc,loc,p,'Pending',0,{before:b,link:null});i.times=[['Reported',Date.now()]];
-  if(d.length){i.dupOf=d[0].id}issues.unshift(i);toast('Issue reported');go('detail',i.id)};
+ const f=$('#rp').files[0],add=async b=>{const p=suggest(desc)||'Low',d=dups(loc,$('#rc').value,desc);
+  const dupOf = d.length ? d[0].id : null;
+  const payload = { by_user: S.user, cat: $('#rc').value, desc, loc, prio: p, sugg: p, status: 'Pending', dupOf, before_photo: b };
+  const res = await fetch('http://localhost:3000/api/issues', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  toast('Issue reported');
+  await loadIssues();
+  go('detail', data.id);
+ };
  if(f){const r=new FileReader();r.onload=()=>add(r.result);r.readAsDataURL(f)}else add(null)}
 
 function listRows(a,adm){return a.length?`<div class="tw"><table><tr><th>ID</th><th>Issue</th><th>Location</th><th>Priority</th><th>Status</th><th>Affected</th><th>Date</th></tr>${a.map(i=>`<tr class="row" onclick="go('detail',${i.id})"><td>#${i.id}</td><td>${esc(i.cat)}<br><small class="sub">${esc(i.desc.slice(0,60))}</small></td><td>${esc(i.loc)}</td><td>${pill(i.prio)}</td><td>${stp(i.status)}</td><td>${i.votes.length+1}</td><td>${fmt(i.times[0][1])}</td></tr>`).join('')}</table></div>`:`<p class="sub">Nothing here yet. Report an issue to get started.</p>`}
@@ -120,15 +128,12 @@ ${adm&&i.status!='Resolved'?`<div class="card" style="margin-top:14px"><h2>Maint
 <label>After-repair photo (required to resolve)</label><input type="file" id="ap" accept="image/*">
 <label>Resolution remarks</label><input id="rm" placeholder="What was fixed?">
 <button class="btn" style="margin-top:12px" onclick="resolve(${i.id})">Mark Resolved</button></div>`:''}</div></div>`}
-function upd(id,k,v){get(id)[k]=v;toast('Priority updated');render()}
-function stamp(i,s){if(!i.times.find(t=>t[0]==s))i.times.push([s,Date.now()])}
-function assign(id,w){const i=get(id);if(!w)return;i.worker=w;stamp(i,'Assigned');toast('Assigned to '+w);render()}
-function prog(id){const i=get(id);if(!i.worker)return toast('Assign a worker first',1);stamp(i,'In Progress');i.status='In Progress';toast('Status: In Progress');render()}
-function merge(id){const i=get(id),m=get(i.dupOf);m.votes.push(...i.votes,i.by);i.link=m.id;i.dupOf=null;toast('Linked to #'+m.id);render()}
-function resolve(id){const i=get(id),f=$('#ap').files[0];
- if(!f)return toast('Upload an after-repair photo first',1);
- if(!i.worker)return toast('Assign a worker first',1);
- const r=new FileReader();r.onload=()=>{i.after=r.result;i.remarks=$('#rm').value;stamp(i,'In Progress');stamp(i,'Resolved');i.status='Resolved';toast('Issue resolved with proof');render()};r.readAsDataURL(f)}
+
+
+
+
+
+
 
 function statsV(){const c=cnt(),rate=c.t?Math.round(c.r/c.t*100):0;
  const grp=k=>{const m={};issues.forEach(i=>m[i[k]]=(m[i[k]]||0)+1);return m};
@@ -151,3 +156,20 @@ function render(){
  $('#app').innerHTML=V[S.view]()}
 $('#hl').src=LOGO;
 render();
+async function apiUpd(id, payload) {
+    try {
+        await fetch(`http://localhost:3000/api/issues/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        await loadIssues();
+    } catch(e) {}
+}
+
+function upd(id,k,v){get(id)[k]=v;toast('Priority updated');render(); apiUpd(id, {[k]: v});}
+function stamp(i,s){if(!i.times.find(t=>t[0]==s))i.times.push([s,Date.now()])}
+function assign(id,w){const i=get(id);if(!w)return;i.worker=w;stamp(i,'Assigned');toast('Assigned to '+w);render(); apiUpd(id, {worker: w, times: i.times});}
+function prog(id){const i=get(id);if(!i.worker)return toast('Assign a worker first',1);stamp(i,'In Progress');i.status='In Progress';toast('Status: In Progress');render(); apiUpd(id, {status: 'In Progress', times: i.times});}
+function merge(id){const i=get(id),m=get(i.dupOf);m.votes.push(...i.votes,i.by);i.link=m.id;i.dupOf=null;toast('Linked to #'+m.id);render(); apiUpd(i.id, {link: m.id, dupOf: null}); apiUpd(m.id, {votes: m.votes});}
+function resolve(id){const i=get(id),f=$('#ap').files[0];
+ if(!f)return toast('Upload an after-repair photo first',1);
+ if(!i.worker)return toast('Assign a worker first',1);
+ const r=new FileReader();r.onload=()=>{i.after=r.result;i.remarks=$('#rm').value;stamp(i,'In Progress');stamp(i,'Resolved');i.status='Resolved';toast('Issue resolved with proof');render(); apiUpd(id, {after_photo: r.result, remarks: i.remarks, status: 'Resolved', times: i.times});}; r.readAsDataURL(f);}
+function support(id){const i=get(id);if(i.votes.includes(S.user)||i.by==S.user)return toast('You already support this issue',1);i.votes.push(S.user);toast('Added: you have this issue too');render(); apiUpd(id, {votes: i.votes});}
