@@ -11,7 +11,7 @@ const mk=(id,by,cat,desc,loc,prio,status,age,extra={})=>({id,by,cat,desc,loc,sug
 let issues=[];
 async function loadIssues() {
     try {
-        const res = await fetch('http://localhost:3000/api/issues');
+        const res = await fetch('http://localhost:3000/api/issues', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('fixit_token') } });
         const data = await res.json();
         issues = data.map(d => ({...d, by: d.by_user, before: d.before_photo, after: d.after_photo}));
         render();
@@ -31,17 +31,28 @@ const HOME={student:'report',admin:'admin',worker:'tasks'};
 const RL={student:['🎓','Student / Staff login','Report problems and track repairs.','Roll no. / Staff ID','e.g. 22CS104'],admin:['🛡','Admin login','Prioritize, assign and verify repairs.','Admin ID','e.g. admin01'],worker:['🔧','Maintenance worker login','See your assigned jobs and upload repair proof.']};
 function home(){go(S.role?HOME[S.role]:'login')}
 function pick(r){S.lr=r;go('lg')}
-function doLogin(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
+async function doLogin(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
  if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
  if(!pw)return toast('Enter your password',1);
- if(r=='worker'){if(pw!=WORKER_PWS[id])return toast('Incorrect password',1);}
- else{const acc=accounts.find(a=>a.id==id&&a.role==r);if(!acc)return toast('Account not found. Please create one.',1);if(acc.pw!=pw)return toast('Incorrect password',1);}
- S.role=r;S.name=id;S.user=r=='worker'?id:(r=='admin'?'Admin':'You');toast('Welcome, '+id.split(' (')[0]);go(HOME[r])}
-function doSignup(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
+ try {
+   const res = await fetch('http://localhost:3000/api/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: id, password: pw}) });
+   const data = await res.json();
+   if(data.error) return toast(data.error,1);
+   localStorage.setItem('fixit_token', data.token);
+   S.role=data.role;S.name=id;S.user=data.role=='worker'?id:(data.role=='admin'?'Admin':'You');toast('Welcome, '+id.split(' (')[0]);
+   await loadIssues(); go(HOME[data.role])
+ } catch(e) { toast('Login failed',1); }
+}
+async function doSignup(){const r=S.lr,id=$('#li').value.trim(),pw=$('#lp').value;
  if(!id)return toast('Enter your '+(r=='worker'?'name':'ID'),1);
  if(!pw)return toast('Enter your password',1);
- if(accounts.find(a=>a.id==id&&a.role==r))return toast('Account already exists',1);
- accounts.push({role:r,id,pw});toast('Account created');doLogin()}
+ try {
+   const res = await fetch('http://localhost:3000/api/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: id, password: pw, role: r}) });
+   const data = await res.json();
+   if(data.error) return toast(data.error,1);
+   toast('Account created');doLogin()
+ } catch(e) { toast('Signup failed',1); }
+}
 function lgV(){const r=S.lr,c=RL[r];
  return `<div class="lgbox" onkeydown="if(event.key=='Enter')doLogin()"><div class="hero"><img src="${LOGO}" alt="College logo"><div><h1 style="margin:0">FixIt</h1></div></div>
 <div class="card bgi fm" style="--img:url(${IMG[r]})"><h2 style="color:var(--ac)">${c[1]}</h2><p class="sub" style="margin-bottom:6px">${c[2]}</p>
@@ -87,7 +98,7 @@ function submitIssue(){const loc=$('#rl').value.trim(),desc=$('#rd').value.trim(
  const f=$('#rp').files[0],add=async b=>{const p=suggest(desc)||'Low',d=dups(loc,$('#rc').value,desc);
   const dupOf = d.length ? d[0].id : null;
   const payload = { by_user: S.user, cat: $('#rc').value, desc, loc, prio: p, sugg: p, status: 'Pending', dupOf, before_photo: b };
-  const res = await fetch('http://localhost:3000/api/issues', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+  const res = await fetch('http://localhost:3000/api/issues', { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('fixit_token')}, body: JSON.stringify(payload) });
   const data = await res.json();
   toast('Issue reported');
   await loadIssues();
@@ -160,7 +171,7 @@ $('#hl').src=LOGO;
 render();
 async function apiUpd(id, payload) {
     try {
-        await fetch(`http://localhost:3000/api/issues/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        await fetch(`http://localhost:3000/api/issues/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('fixit_token')}, body: JSON.stringify(payload) });
         await loadIssues();
     } catch(e) {}
 }

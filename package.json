@@ -19,8 +19,10 @@
   },
   "homepage": "https://github.com/suchinanand251107-netizen/FixIt#readme",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
     "sqlite3": "^6.0.1"
   }
